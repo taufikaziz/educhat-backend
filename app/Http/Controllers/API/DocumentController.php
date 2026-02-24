@@ -34,6 +34,10 @@ class DocumentController extends Controller
     public function upload(Request $request): JsonResponse
     {
         try {
+            if (config('queue.default') === 'sync') {
+                @set_time_limit(300);
+            }
+
             $request->validate([
                 'file' => 'required|file|mimes:pdf|max:10240', // max 10MB
             ]);

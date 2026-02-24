@@ -25,6 +25,8 @@ class ProcessDocument implements ShouldQueue
 
     public function handle(RAGService $ragService): void
     {
+        @set_time_limit(300);
+
         Log::info('Processing document', [
             'document_id' => $this->document->id,
             'session_id' => $this->document->session_id

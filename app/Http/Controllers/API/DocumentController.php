@@ -8,6 +8,7 @@ use App\Jobs\ProcessDocument;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class DocumentController extends Controller
@@ -32,36 +33,45 @@ class DocumentController extends Controller
 
     public function upload(Request $request): JsonResponse
     {
-        $request->validate([
-            'file' => 'required|file|mimes:pdf|max:10240', // max 10MB
-        ]);
+        try {
+            $request->validate([
+                'file' => 'required|file|mimes:pdf|max:10240', // max 10MB
+            ]);
 
-        $file = $request->file('file');
-        $sessionId = Str::uuid()->toString();
-        $disk = config('filesystems.default', 'local');
+            $file = $request->file('file');
+            $sessionId = Str::uuid()->toString();
+            $disk = config('filesystems.default', 'local');
 
-        // Save file
-        $filename = $sessionId . '.pdf';
-        $path = $file->storeAs('documents', $filename, $disk);
+            // Save file
+            $filename = $sessionId . '.pdf';
+            $path = $file->storeAs('documents', $filename, $disk);
 
-        // Create document record
-        $document = Document::create([
-            'user_id' => auth()->id(),
-            'filename' => $filename,
-            'original_filename' => $file->getClientOriginalName(),
-            'file_path' => $path,
-            'file_size' => $file->getSize(),
-            'session_id' => $sessionId,
-            'status' => 'processing',
-        ]);
+            // Create document record
+            $document = Document::create([
+                'user_id' => auth()->id(),
+                'filename' => $filename,
+                'original_filename' => $file->getClientOriginalName(),
+                'file_path' => $path,
+                'file_size' => $file->getSize(),
+                'session_id' => $sessionId,
+                'status' => 'processing',
+            ]);
 
-        // Dispatch job to process document
-        ProcessDocument::dispatch($document);
+            // Dispatch job to process document
+            ProcessDocument::dispatch($document);
 
-        return $this->successResponse('Document uploaded and processing started', [
-            'session_id' => $sessionId,
-            'document_id' => $document->id,
-        ], 201);
+            return $this->successResponse('Document uploaded and processing started', [
+                'session_id' => $sessionId,
+                'document_id' => $document->id,
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('Document upload failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return $this->errorResponse('Upload failed: '.$e->getMessage(), 500);
+        }
     }
 
     public function status(string $sessionId): JsonResponse

@@ -14,13 +14,13 @@ class RAGService
         $this->baseUrl = rtrim(config('services.rag.url', 'http://127.0.0.1:5050'), '/');
     }
 
-    public function processDocument(string $filePath, string $sessionId): array
+    public function processDocument(string $fileContent, string $filename, string $sessionId): array
     {
         try {
             $response = Http::timeout(300)->attach(
                 'file',
-                file_get_contents($filePath),
-                basename($filePath)
+                $fileContent,
+                $filename
             )->post("{$this->baseUrl}/process", [
                 'session_id' => $sessionId,
             ]);

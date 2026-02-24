@@ -38,10 +38,11 @@ class DocumentController extends Controller
 
         $file = $request->file('file');
         $sessionId = Str::uuid()->toString();
+        $disk = config('filesystems.default', 'local');
 
         // Save file
         $filename = $sessionId . '.pdf';
-        $path = $file->storeAs('documents', $filename);
+        $path = $file->storeAs('documents', $filename, $disk);
 
         // Create document record
         $document = Document::create([
@@ -99,7 +100,7 @@ class DocumentController extends Controller
         }
 
         // Delete file
-        \Storage::delete($document->file_path);
+        Storage::disk(config('filesystems.default', 'local'))->delete($document->file_path);
 
         // Delete record
         $document->delete();
@@ -115,14 +116,26 @@ class DocumentController extends Controller
             return $this->errorResponse('Document not found', 404);
         }
 
-        if (! Storage::disk('local')->exists($document->file_path)) {
+        $disk = config('filesystems.default', 'local');
+
+        if (! Storage::disk($disk)->exists($document->file_path)) {
             return $this->errorResponse('Document file not found', 404);
         }
 
-        $absolutePath = Storage::disk('local')->path($document->file_path);
         $safeFilename = str_replace('"', '', $document->original_filename);
 
-        return response()->file($absolutePath, [
+        if ($disk === 'local') {
+            $absolutePath = Storage::disk('local')->path($document->file_path);
+
+            return response()->file($absolutePath, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="'.$safeFilename.'"',
+            ]);
+        }
+
+        $content = Storage::disk($disk)->get($document->file_path);
+
+        return response($content, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$safeFilename.'"',
         ]);

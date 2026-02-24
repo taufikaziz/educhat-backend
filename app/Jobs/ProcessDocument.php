@@ -30,9 +30,30 @@ class ProcessDocument implements ShouldQueue
             'session_id' => $this->document->session_id
         ]);
 
-        $filePath = Storage::path($this->document->file_path);
+        $disk = config('filesystems.default', 'local');
 
-        $result = $ragService->processDocument($filePath, $this->document->session_id);
+        if (! Storage::disk($disk)->exists($this->document->file_path)) {
+            $this->document->update([
+                'status' => 'failed',
+                'error_message' => 'Document file not found in storage',
+            ]);
+
+            Log::error('Document file not found', [
+                'document_id' => $this->document->id,
+                'disk' => $disk,
+                'path' => $this->document->file_path,
+            ]);
+
+            return;
+        }
+
+        $fileContent = Storage::disk($disk)->get($this->document->file_path);
+
+        $result = $ragService->processDocument(
+            $fileContent,
+            $this->document->filename,
+            $this->document->session_id
+        );
 
         if ($result['success']) {
             $this->document->update([

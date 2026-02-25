@@ -40,18 +40,26 @@ class ChatController extends Controller
             'document_id' => 'required|exists:documents,id',
         ]);
 
-        $document = Document::find($request->document_id);
+        $document = Document::where('id', $request->document_id)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (! $document) {
+            return $this->errorResponse('Document not found', 404);
+        }
 
         if (! $document->isReady()) {
             return $this->errorResponse('Document is not ready yet. Status: '.$document->status, 400);
         }
 
-        $session = ChatSession::create([
-            'user_id' => auth()->id(),
-            'document_id' => $document->id,
-            'session_id' => $document->session_id,
-            'title' => 'Chat: '.$document->original_filename,
-        ]);
+        $session = ChatSession::firstOrCreate(
+            ['session_id' => $document->session_id],
+            [
+                'user_id' => auth()->id(),
+                'document_id' => $document->id,
+                'title' => 'Chat: '.$document->original_filename,
+            ]
+        );
 
         return $this->successResponse('Chat session created', [
             'session' => $session->load('document'),
@@ -65,7 +73,13 @@ class ChatController extends Controller
             'question' => 'required|string|max:1000',
         ]);
 
-        $chatSession = ChatSession::where('session_id', $request->session_id)->first();
+        $chatSession = ChatSession::where('session_id', $request->session_id)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (! $chatSession) {
+            return $this->errorResponse('Session not found', 404);
+        }
 
         $userMessage = Message::create([
             'chat_session_id' => $chatSession->id,
@@ -110,7 +124,13 @@ class ChatController extends Controller
             ]);
         }
 
-        $chatSession = ChatSession::where('session_id', $request->session_id)->first();
+        $chatSession = ChatSession::where('session_id', $request->session_id)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (! $chatSession) {
+            return $this->errorResponse('Session not found', 404);
+        }
 
         $message = Message::create([
             'chat_session_id' => $chatSession->id,
@@ -126,7 +146,9 @@ class ChatController extends Controller
 
     public function messages(string $sessionId): JsonResponse
     {
-        $chatSession = ChatSession::where('session_id', $sessionId)->first();
+        $chatSession = ChatSession::where('session_id', $sessionId)
+            ->where('user_id', auth()->id())
+            ->first();
 
         if (! $chatSession) {
             return $this->errorResponse('Session not found', 404);
@@ -155,7 +177,9 @@ class ChatController extends Controller
 
     public function destroy(string $sessionId): JsonResponse
     {
-        $chatSession = ChatSession::where('session_id', $sessionId)->first();
+        $chatSession = ChatSession::where('session_id', $sessionId)
+            ->where('user_id', auth()->id())
+            ->first();
 
         if (! $chatSession) {
             return $this->errorResponse('Session not found', 404);

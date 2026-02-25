@@ -35,6 +35,15 @@
             </div>
             
             <div class="flex items-center space-x-2">
+                <div class="hidden md:flex items-center space-x-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm text-slate-600">
+                    <span>{{ auth()->user()->name }}</span>
+                </div>
+                <form method="POST" action="{{ route('logout') }}" class="hidden md:block">
+                    @csrf
+                    <button type="submit" class="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 bg-white hover:bg-slate-100 transition text-sm">
+                        Logout
+                    </button>
+                </form>
                 <!-- Summary Button -->
                 <button 
                     @click="generateSummary"
@@ -299,6 +308,11 @@ function chatApp() {
         },
 
         async parseJsonResponse(response) {
+            if (response.status === 401) {
+                window.location.href = '{{ route('login') }}';
+                throw new Error('Session berakhir. Silakan login ulang.');
+            }
+
             const contentType = response.headers.get('content-type') || '';
 
             if (contentType.includes('application/json')) {

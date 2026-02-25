@@ -80,7 +80,9 @@ class DocumentController extends Controller
 
     public function status(string $sessionId): JsonResponse
     {
-        $document = Document::where('session_id', $sessionId)->first();
+        $document = Document::where('session_id', $sessionId)
+            ->where('user_id', auth()->id())
+            ->first();
 
         if (!$document) {
             return $this->errorResponse('Document not found', 404);
@@ -107,7 +109,9 @@ class DocumentController extends Controller
 
     public function destroy(string $sessionId): JsonResponse
     {
-        $document = Document::where('session_id', $sessionId)->first();
+        $document = Document::where('session_id', $sessionId)
+            ->where('user_id', auth()->id())
+            ->first();
 
         if (!$document) {
             return $this->errorResponse('Document not found', 404);
@@ -124,7 +128,9 @@ class DocumentController extends Controller
 
     public function file(string $sessionId)
     {
-        $document = Document::where('session_id', $sessionId)->first();
+        $document = Document::where('session_id', $sessionId)
+            ->where('user_id', auth()->id())
+            ->first();
 
         if (! $document) {
             return $this->errorResponse('Document not found', 404);

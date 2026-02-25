@@ -14,9 +14,24 @@
                 <span class="font-bold text-2xl text-gray-800">EduChat</span>
             </div>
             <div class="space-x-4">
-                <a href="{{ route('chat') }}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium shadow-md hover:shadow-lg">
-                    Mulai Chat
-                </a>
+                @auth
+                    <a href="{{ route('chat') }}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium shadow-md hover:shadow-lg">
+                        Mulai Chat
+                    </a>
+                    <form action="{{ route('logout') }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit" class="px-6 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition font-medium">
+                            Logout
+                        </button>
+                    </form>
+                @else
+                    <a href="{{ route('login') }}" class="px-6 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 transition font-medium">
+                        Sign In
+                    </a>
+                    <a href="{{ route('register') }}" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium shadow-md hover:shadow-lg">
+                        Daftar
+                    </a>
+                @endauth
             </div>
         </div>
     </nav>
@@ -31,9 +46,15 @@
                 Upload slide kuliah, chat dengan AI, dan pahami materi dengan lebih cepat. 
                 <span class="font-semibold text-gray-800">Gratis dan mudah digunakan.</span>
             </p>
-            <a href="{{ route('chat') }}" class="inline-block bg-blue-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-blue-700 transition shadow-xl hover:shadow-2xl transform hover:-translate-y-1">
-                Coba Sekarang - Gratis!
-            </a>
+            @auth
+                <a href="{{ route('chat') }}" class="inline-block bg-blue-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-blue-700 transition shadow-xl hover:shadow-2xl transform hover:-translate-y-1">
+                    Coba Sekarang - Gratis!
+                </a>
+            @else
+                <a href="{{ route('login') }}" class="inline-block bg-blue-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-blue-700 transition shadow-xl hover:shadow-2xl transform hover:-translate-y-1">
+                    Sign In untuk Mulai
+                </a>
+            @endauth
         </div>
     </section>
 
@@ -134,9 +155,15 @@
             <p class="text-xl mb-8 opacity-90">
                 Bergabung dengan ribuan mahasiswa yang sudah menggunakan EduChat
             </p>
-            <a href="{{ route('chat') }}" class="inline-block bg-white text-blue-600 px-8 py-4 rounded-xl text-lg font-bold hover:bg-gray-100 transition shadow-lg">
-                Mulai Sekarang ->
-            </a>
+            @auth
+                <a href="{{ route('chat') }}" class="inline-block bg-white text-blue-600 px-8 py-4 rounded-xl text-lg font-bold hover:bg-gray-100 transition shadow-lg">
+                    Mulai Sekarang ->
+                </a>
+            @else
+                <a href="{{ route('register') }}" class="inline-block bg-white text-blue-600 px-8 py-4 rounded-xl text-lg font-bold hover:bg-gray-100 transition shadow-lg">
+                    Buat Akun ->
+                </a>
+            @endauth
         </div>
     </section>
 

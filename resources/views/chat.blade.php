@@ -13,6 +13,12 @@
             linear-gradient(160deg, #f5f3ff 0%, #ecfeff 46%, #f8fafc 100%);
     }
 </style>
+<script>
+window.educhatAuth = {
+    isAuthenticated: @json(auth()->check()),
+    loginUrl: @json(route('login')),
+};
+</script>
 <div x-data="chatApp()" class="chat-studio min-h-screen flex flex-col">
     <!-- Header -->
     <header class="bg-white/80 backdrop-blur border-b border-white/60 shadow-sm sticky top-0 z-10">
@@ -35,15 +41,21 @@
             </div>
             
             <div class="flex items-center space-x-2">
-                <div class="hidden md:flex items-center space-x-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm text-slate-600">
-                    <span>{{ auth()->user()->name }}</span>
-                </div>
-                <form method="POST" action="{{ route('logout') }}" class="hidden md:block">
-                    @csrf
-                    <button type="submit" class="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 bg-white hover:bg-slate-100 transition text-sm">
-                        Logout
-                    </button>
-                </form>
+                @auth
+                    <div class="hidden md:flex items-center space-x-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm text-slate-600">
+                        <span>{{ auth()->user()->name }}</span>
+                    </div>
+                    <form method="POST" action="{{ route('logout') }}" class="hidden md:block">
+                        @csrf
+                        <button type="submit" class="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 bg-white hover:bg-slate-100 transition text-sm">
+                            Logout
+                        </button>
+                    </form>
+                @else
+                    <a href="{{ route('login') }}" class="hidden md:block px-3 py-2 rounded-xl border border-slate-300 text-slate-700 bg-white hover:bg-slate-100 transition text-sm">
+                        Sign In
+                    </a>
+                @endauth
                 <!-- Summary Button -->
                 <button 
                     @click="generateSummary"
@@ -97,6 +109,7 @@
     <div class="flex-1 w-full py-0 flex flex-col">
         <div class="flex-1 flex flex-col lg:flex-row items-start gap-4 min-h-0">
             <!-- Sidebar: PDF History -->
+            @auth
             <aside class="w-full lg:w-80 lg:max-h-[calc(100vh-5rem)] bg-white/90 rounded-2xl shadow-lg border border-white/70 flex flex-col min-h-0">
                 <div class="px-4 py-4 border-b border-slate-100 bg-slate-50/80 rounded-t-2xl">
                     <h2 class="font-semibold text-gray-800">Riwayat PDF</h2>
@@ -153,6 +166,13 @@
                     </template>
                 </div>
             </aside>
+            @else
+            <aside class="w-full lg:w-80 bg-white/90 rounded-2xl shadow-lg border border-white/70 p-4 text-sm text-slate-600">
+                Kamu sedang menggunakan mode guest. Chat tetap bisa dipakai, tapi riwayat tidak disimpan.
+                <a href="{{ route('login') }}" class="text-blue-600 font-semibold hover:underline">Sign in</a>
+                untuk menyimpan history.
+            </aside>
+            @endauth
 
             <!-- PDF Preview -->
             <aside class="hidden lg:flex lg:w-[26rem] xl:w-[30rem] lg:h-[calc(100vh-5rem)] bg-white/90 rounded-2xl shadow-lg border border-white/70 flex-col overflow-hidden min-h-0">
@@ -288,6 +308,7 @@
 <script>
 function chatApp() {
     return {
+        isAuthenticated: Boolean(window.educhatAuth?.isAuthenticated),
         messages: [],
         input: '',
         sessions: [],
@@ -304,12 +325,14 @@ function chatApp() {
         processingProgress: 'Menunggu...',
 
         async init() {
-            await this.loadSessions();
+            if (this.isAuthenticated) {
+                await this.loadSessions();
+            }
         },
 
         async parseJsonResponse(response) {
             if (response.status === 401) {
-                window.location.href = '{{ route('login') }}';
+                window.location.href = window.educhatAuth?.loginUrl || '/login';
                 throw new Error('Session berakhir. Silakan login ulang.');
             }
 
@@ -353,6 +376,11 @@ function chatApp() {
         },
 
         async loadSessions() {
+            if (!this.isAuthenticated) {
+                this.sessions = [];
+                return;
+            }
+
             try {
                 const response = await fetch('/api/chat/sessions', {
                     headers: {
@@ -556,15 +584,24 @@ function chatApp() {
                     if (payload.status === 'ready') {
                         clearInterval(interval);
                         try {
-                            await this.createChatSession();
+                            if (this.isAuthenticated) {
+                                await this.createChatSession();
+                            } else {
+                                this.sessionId = this.documentSessionId;
+                                this.setPdfPreview(this.sessionId);
+                            }
                             this.isProcessing = false;
                         
                             this.messages.push({
                                 role: 'system',
-                            content: `OK: Dokumen berhasil diproses!\n\nTotal chunks: ${payload.num_chunks}\n\nKamu sekarang bisa mulai bertanya tentang materi.`,
+                                content: this.isAuthenticated
+                                    ? `OK: Dokumen berhasil diproses!\n\nTotal chunks: ${payload.num_chunks}\n\nKamu sekarang bisa mulai bertanya tentang materi.`
+                                    : `OK: Dokumen berhasil diproses!\n\nTotal chunks: ${payload.num_chunks}\n\nMode guest aktif: riwayat chat tidak disimpan.`,
                                 timestamp: new Date()
                             });
-                            await this.loadSessions();
+                            if (this.isAuthenticated) {
+                                await this.loadSessions();
+                            }
                         
                             this.scrollToBottom();
                         } catch (error) {
@@ -635,7 +672,9 @@ function chatApp() {
                         content: payload.answer,
                         timestamp: new Date()
                     });
-                    await this.loadSessions();
+                    if (this.isAuthenticated) {
+                        await this.loadSessions();
+                    }
                 } else {
                     this.messages.push({
                         role: 'system',
@@ -684,7 +723,9 @@ function chatApp() {
                         content: `**Ringkasan Dokumen:**\n\n${payload.summary}`,
                         timestamp: new Date()
                     });
-                    await this.loadSessions();
+                    if (this.isAuthenticated) {
+                        await this.loadSessions();
+                    }
                     this.scrollToBottom();
                 } else {
                     alert('Gagal membuat ringkasan: ' + data.message);

@@ -14,9 +14,10 @@ Route::middleware('guest')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->name('register.store');
 });
 
+Route::get('/chat', function () {
+    return view('chat');
+})->name('chat');
+
 Route::middleware('auth')->group(function () {
-    Route::get('/chat', function () {
-        return view('chat');
-    })->name('chat');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });

@@ -69,23 +69,36 @@ class ChatController extends Controller
     public function query(Request $request): JsonResponse
     {
         $request->validate([
-            'session_id' => 'required|exists:chat_sessions,session_id',
+            'session_id' => 'required|string',
             'question' => 'required|string|max:1000',
         ]);
 
-        $chatSession = ChatSession::where('session_id', $request->session_id)
-            ->where('user_id', auth()->id())
-            ->first();
+        $chatSession = null;
+        $userMessage = null;
 
-        if (! $chatSession) {
-            return $this->errorResponse('Session not found', 404);
+        if (auth()->check()) {
+            $chatSession = ChatSession::where('session_id', $request->session_id)
+                ->where('user_id', auth()->id())
+                ->first();
+
+            if (! $chatSession) {
+                return $this->errorResponse('Session not found', 404);
+            }
+
+            $userMessage = Message::create([
+                'chat_session_id' => $chatSession->id,
+                'role' => 'user',
+                'content' => $request->question,
+            ]);
+        } else {
+            $document = Document::where('session_id', $request->session_id)
+                ->whereNull('user_id')
+                ->first();
+
+            if (! $document || ! $document->isReady()) {
+                return $this->errorResponse('Session not found', 404);
+            }
         }
-
-        $userMessage = Message::create([
-            'chat_session_id' => $chatSession->id,
-            'role' => 'user',
-            'content' => $request->question,
-        ]);
 
         $result = $this->ragService->query($request->question, $request->session_id);
 
@@ -95,32 +108,54 @@ class ChatController extends Controller
             ]);
         }
 
-        $assistantMessage = Message::create([
-            'chat_session_id' => $chatSession->id,
-            'role' => 'assistant',
-            'content' => $result['answer'],
-        ]);
+        $assistantMessage = null;
+        if ($chatSession) {
+            $assistantMessage = Message::create([
+                'chat_session_id' => $chatSession->id,
+                'role' => 'assistant',
+                'content' => $result['answer'],
+            ]);
 
-        $chatSession->touch();
+            $chatSession->touch();
+        }
 
         return $this->successResponse('Query processed successfully', [
             'answer' => $result['answer'],
             'user_message' => $userMessage,
             'assistant_message' => $assistantMessage,
+            'saved_history' => auth()->check(),
         ]);
     }
 
     public function summary(Request $request): JsonResponse
     {
         $request->validate([
-            'session_id' => 'required|exists:chat_sessions,session_id',
+            'session_id' => 'required|string',
         ]);
+
+        if (! auth()->check()) {
+            $document = Document::where('session_id', $request->session_id)
+                ->whereNull('user_id')
+                ->first();
+
+            if (! $document || ! $document->isReady()) {
+                return $this->errorResponse('Session not found', 404);
+            }
+        }
 
         $result = $this->ragService->generateSummary($request->session_id);
 
         if (! $result['success']) {
             return $this->errorResponse($result['message'] ?? 'Failed to generate summary', 400, [
                 'provider_response' => $result,
+            ]);
+        }
+
+        if (! auth()->check()) {
+            return $this->successResponse('Summary generated successfully', [
+                'summary' => $result['summary'],
+                'summary_message' => null,
+                'saved_history' => false,
             ]);
         }
 
@@ -141,6 +176,7 @@ class ChatController extends Controller
         return $this->successResponse('Summary generated successfully', [
             'summary' => $result['summary'],
             'summary_message' => $message,
+            'saved_history' => true,
         ]);
     }
 
